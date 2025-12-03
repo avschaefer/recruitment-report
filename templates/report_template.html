@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Summary Card</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom purple mimicking the reference image */
+        .text-custom-purple { color: #4F46E5; }
+        .bg-custom-purple-light { background-color: #EEF2FF; }
+        .bg-custom-purple-header { background-color: #F5F7FF; }
+        .text-custom-purple-header { color: #3730A3; }
+        
+        .copy-tooltip {
+            position: absolute;
+            background: #1f2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .copy-wrapper:hover .copy-tooltip.show {
+            opacity: 1;
+        }
+        .copy-success {
+            opacity: 1 !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-12 px-4 gap-8">
+
+    <!-- Card Container -->
+    <div class="w-full max-w-4xl bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative">
+        
+        <!-- Technical Assessment Header -->
+        <div class="bg-custom-purple-header px-6 py-4 border-b border-indigo-100">
+            <h2 class="text-custom-purple-header font-bold text-lg tracking-wide uppercase">
+                Technical Assessment Responses
+            </h2>
+        </div>
+
+        <!-- Card Body -->
+        <div class="p-6 relative">
+            
+            <!-- Subtle Submitted Date (Top Right) -->
+            <div class="absolute top-6 right-6 text-xs text-gray-400 font-medium">
+                Submitted {{ submission_time }}
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="flex flex-col gap-6">
+                
+                <!-- Primary Info: Name, Badge, Email -->
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-2xl font-bold text-gray-900">{{ candidate_name }}</h1>
+                        <span class="bg-custom-purple-light text-custom-purple text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
+                            {{ position_type }}
+                        </span>
+                    </div>
+
+                    <!-- Clickable Email -->
+                    <div class="relative inline-block w-max copy-wrapper group">
+                        <button onclick="copyEmail('{{ email }}')" class="flex items-center gap-2 text-custom-purple text-sm font-medium hover:text-indigo-700 transition-colors focus:outline-none">
+                            <span>{{ email }}</span>
+                            <i class="fa-regular fa-copy text-xs opacity-60 group-hover:opacity-100 transition-opacity"></i>
+                        </button>
+                        <!-- Tooltip -->
+                        <div id="copyTooltip" class="copy-tooltip">Copied!</div>
+                    </div>
+                </div>
+
+                <!-- Secondary Info: Horizontal compact layout -->
+                <div class="flex flex-wrap gap-x-12 gap-y-4 pt-2 border-t border-dashed border-gray-100">
+                    
+                    <!-- Education -->
+                    <div>
+                        <h3 class="text-gray-400 text-xs uppercase font-semibold mb-1">Education</h3>
+                        <p class="text-gray-900 text-sm font-medium">{{ degree }} ({{ grad_year }})</p>
+                    </div>
+
+                    <!-- Preferred Start Date -->
+                    <div>
+                        <h3 class="text-gray-400 text-xs uppercase font-semibold mb-1">Start Date</h3>
+                        <p class="text-gray-900 text-sm font-medium">{{ preferred_start_date }}</p>
+                    </div>
+
+                    <!-- Links -->
+                    <div>
+                        <h3 class="text-gray-400 text-xs uppercase font-semibold mb-1">Links</h3>
+                        <div class="flex gap-3 text-sm">
+                            {% if linkedin_url != '#' %}
+                                <a href="{{ linkedin_url }}" target="_blank" class="text-custom-purple hover:underline font-medium">LinkedIn</a>
+                            {% else %}
+                                <span class="text-gray-400 font-medium cursor-not-allowed">LinkedIn</span>
+                            {% endif %}
+                            
+                            {% if portfolio_url != '#' %}
+                                <a href="{{ portfolio_url }}" target="_blank" class="text-custom-purple hover:underline font-medium">Portfolio</a>
+                            {% else %}
+                                <span class="text-gray-400 font-medium cursor-not-allowed">Portfolio</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Q&A Section -->
+    <div class="w-full max-w-4xl space-y-4">
+        {% for item in qa_list %}
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-sm">
+                    {{ loop.index }}
+                </div>
+                <div class="flex-grow">
+                    <h3 class="text-gray-900 font-semibold text-base mb-2">{{ item.question }}</h3>
+                    <div class="text-gray-600 text-sm whitespace-pre-wrap bg-slate-50 p-4 rounded-md border border-gray-100">{{ item.answer }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function copyEmail(email) {
+            if (!email || email === 'N/A') return;
+            
+            // Copy logic
+            const textArea = document.createElement("textarea");
+            textArea.value = email;
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showTooltip();
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        function showTooltip() {
+            const tooltip = document.getElementById('copyTooltip');
+            tooltip.classList.add('copy-success');
+            
+            setTimeout(() => {
+                tooltip.classList.remove('copy-success');
+            }, 1500);
+        }
+    </script>
+</body>
+</html>

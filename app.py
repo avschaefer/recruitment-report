@@ -2,16 +2,49 @@ import streamlit as st
 import json
 from jinja2 import Template
 import io
+import datetime
 
 # --- CONFIGURATION ---
 # Columns that should NOT be treated as Technical Questions
 # Add any new personal info columns here to prevent them from appearing in the Q&A section
 BIO_FIELDS = [
-    'ID', 'Start time', 'Completion time', 'Email', 'Name', 
+    'ID', 'ItemInternalId', 'Start time', 'Completion time', 'Email', 'Email1', 'Name', 
     'First & Last Name', 'LinkedIn Profile URL', 'Portfolio URL', 
     'Position Type', 'Degree', 'Graduation Year', 
-    'Preferred Start Date', 'Submission Time'
+    'Preferred Start Date', 'Preferred Start Date1', 'Submission Time'
 ]
+
+def clean_key(key):
+    """
+    Cleans SharePoint/Excel encoded characters from keys.
+    """
+    key = key.replace("_x002e_", ".")
+    key = key.replace("_x003a_", ":")
+    key = key.replace("_x0023_", "#")
+    
+    # Normalize specific fields with variable suffixes
+    if "LinkedIn Profile URL" in key:
+        return "LinkedIn Profile URL"
+    if "Portfolio URL" in key:
+        return "Portfolio URL"
+    
+    return key.strip()
+
+def format_excel_date(serial):
+    """
+    Converts Excel serial date to readable string.
+    """
+    if not serial:
+        return "N/A"
+    try:
+        # Check if it looks like a float/int
+        float(serial)
+        # Excel base date is usually Dec 30, 1899
+        base_date = datetime.datetime(1899, 12, 30)
+        delta = datetime.timedelta(days=float(serial))
+        return (base_date + delta).strftime("%B %d, %Y")
+    except ValueError:
+        return serial
 
 def parse_json_data(json_content):
     """
@@ -41,15 +74,22 @@ def parse_json_data(json_content):
             # Skip internal Excel fields like @odata.etag
             if key.startswith("@"):
                 continue
+            
+            # Clean the key (decode characters, normalize names)
+            clean_k = clean_key(key)
                 
             # Check if this column is in our known Bio Fields list (case insensitive check)
-            if any(bio_key.lower() == key.lower() for bio_key in BIO_FIELDS):
-                metadata[key] = value
+            if any(bio_key.lower() == clean_k.lower() for bio_key in BIO_FIELDS):
+                # Apply date formatting if applicable
+                if clean_k in ['Completion time', 'Start time', 'Submission Time', 'Preferred Start Date', 'Preferred Start Date1']:
+                    metadata[clean_k] = format_excel_date(value)
+                else:
+                    metadata[clean_k] = value
             else:
                 # It's a technical question
                 # Only add if the answer isn't empty/null (optional cleanup)
                 if value: 
-                    qa_list.append({'question': key, 'answer': str(value)})
+                    qa_list.append({'question': clean_k, 'answer': str(value)})
 
         return metadata, qa_list
     except Exception as e:
@@ -66,8 +106,9 @@ def render_report(metadata, qa_list, template_code):
     rendered_html = template.render(
         candidate_name=metadata.get('First & Last Name', metadata.get('Name', 'Unknown Candidate')),
         position_type=metadata.get('Position Type', 'N/A'),
-        email=metadata.get('Email', 'N/A'),
+        email=metadata.get('Email1', metadata.get('Email', 'N/A')),
         submission_time=metadata.get('Completion time', 'N/A'),
+        preferred_start_date=metadata.get('Preferred Start Date1', metadata.get('Preferred Start Date', 'N/A')),
         linkedin_url=metadata.get('LinkedIn Profile URL', '#'),
         portfolio_url=metadata.get('Portfolio URL', '#'),
         degree=metadata.get('Degree', 'N/A'),
@@ -79,14 +120,13 @@ def render_report(metadata, qa_list, template_code):
 # --- STREAMLIT UI ---
 st.set_page_config(page_title="Recruitment Report Generator", layout="wide")
 
-st.title("📄 Candidate Report Generator")
-st.markdown("Convert raw Power Automate JSON data into professional PDF-ready HTML reports.")
+st.title("Candidate Report Generator")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("1. Technical Report")
-    uploaded_tech_file = st.file_uploader("Upload Technical JSON (from Automation)", type=['json'], key="tech")
+    st.subheader("Technical Report")
+    uploaded_tech_file = st.file_uploader("Upload Technical JSON (from Power Automate Flow)", type=['json'], key="tech")
     
     if uploaded_tech_file is not None:
         # Load the Template
@@ -105,7 +145,7 @@ with col1:
             
             # Download Button
             st.download_button(
-                label="📥 Download Styled HTML Report",
+                label="Download HTML Report",
                 data=final_report,
                 file_name=f"Report_{metadata.get('First & Last Name', 'Candidate')}.html",
                 mime="text/html"
@@ -118,6 +158,5 @@ with col1:
             st.error("Could not parse the JSON file. Ensure it is the raw output from Power Automate.")
 
 with col2:
-    st.subheader("2. Behavioral Report")
-    st.info("Module coming soon.")
+    st.subheader("Behavioral Report-Coming Soon")
     st.file_uploader("Upload Behavioral JSON", type=['json'], disabled=True, key="behav")
